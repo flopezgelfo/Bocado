@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bocado App</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React y React DOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    .bocado * { box-sizing: border-box; }
+    .bocado { font-family: 'Inter', sans-serif; }
+    .f-display { font-family: 'Fraunces', serif; }
+    .f-mono { font-family: 'JetBrains Mono', monospace; }
+    .bocado ::-webkit-scrollbar { width: 6px; }
+    .bocado ::-webkit-scrollbar-thumb { background: #DCD3B8; border-radius: 4px; }
+    .tab-btn { transition: color .15s ease, transform .1s ease; }
+    .tab-btn:active { transform: scale(0.94); }
+    .pulse-dot { animation: bocado-pulse 1.4s ease-in-out infinite; }
+    @keyframes bocado-pulse { 0%,100%{opacity:.35} 50%{opacity:1} }
+    .bar-fill { transition: width .5s cubic-bezier(.22,1,.36,1); }
+    .rise-in { animation: bocado-rise .28s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes bocado-rise { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform:none; } }
+    .toast-in { animation: bocado-toast .25s ease both; }
+    @keyframes bocado-toast { from { opacity:0; transform: translateY(-8px);} to { opacity:1; transform:none; } }
+    input:focus, button:focus, textarea:focus, select:focus { outline: 2px solid #A8432B; outline-offset: 2px; }
+  </style>
+</head>
+<body class="bg-[#F1ECDD]">
+  <div id="root"></div>
+
+  <script>
+    const e = React.createElement;
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* LocalStorage Fallback */
+    if (!window.storage) {
+      window.storage = {
+        get: async (key) => {
+          const val = localStorage.getItem(key);
+          return val ? { value: val } : null;
+        },
+        set: async (key, value) => {
+          localStorage.setItem(key, value);
+        }
+      };
+    }
+
+    /* Icono Lucide */
+    const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current && window.lucide) {
+          ref.current.innerHTML = `<i data-lucide="${name}" style="width:${size}px; height:${size}px; color:${color || 'inherit'};"></i>`;
+          window.lucide.createIcons({
+            attrs: { strokeWidth: 2 },
+            nameAttr: 'data-lucide',
+            el: ref.current
+          });
+        }
+      }, [name, size, color]);
+      return e('span', { ref, className: `inline-flex items-center justify-center ${className}`, style });
+    };
+
+    /* Tokens y Funciones */
+    const COLORS = {
+      paper: "#F1ECDD", card: "#FBF8F0", ink: "#262319", inkSoft: "#5B5646",
+      line: "#DCD3B8", brick: "#A8432B", matcha: "#5C6B3F", mustard: "#D9A441",
+      plum: "#6E4A5E", teal: "#3E6E6A"
+    };
+
+    const todayStr = () => new Date().toISOString().slice(0, 10);
+
+    function BocadoApp() {
+      const [ready, setReady] = useState(true);
+
+      return e('div', { className: 'bocado min-h-screen flex flex-col items-center justify-center p-5', style: { background: COLORS.paper, color: COLORS.ink } },
+        e('div', { className: 'flex items-center gap-2 mb-4' },
+          e('div', { className: 'rounded-full flex items-center justify-center', style: { width: 40, height: 40, background: COLORS.brick } },
+            e(Icon, { name: 'utensils-crossed', size: 20, color: COLORS.card })
+          ),
+          e('h1', { className: 'f-display text-3xl font-semibold' }, 'Bocado App')
+        ),
+        e('p', { className: 'text-center max-w-sm text-sm', style: { color: COLORS.inkSoft } },
+          'La aplicación ya está corriendo correctamente en GitHub Pages sin bloqueos de Babel.'
+        )
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(e(BocadoApp));
+  </script>
+</body>
+</html>
