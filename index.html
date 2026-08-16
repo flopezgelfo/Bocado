@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bocado</title>
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<meta name="theme-color" content="#A8432B" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Bocado" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+html, body { margin: 0; padding: 0; }
+.bocado * { box-sizing: border-box; }
+.bocado { font-family: 'Inter', sans-serif; }
+.f-display { font-family: 'Fraunces', serif; }
+.f-mono { font-family: 'JetBrains Mono', monospace; }
+.bocado ::-webkit-scrollbar { width: 6px; }
+.bocado ::-webkit-scrollbar-thumb { background: #DCD3B8; border-radius: 4px; }
+.tab-btn { transition: color .15s ease, transform .1s ease; }
+.tab-btn:active { transform: scale(0.94); }
+.pulse-dot { animation: bocado-pulse 1.4s ease-in-out infinite; }
+@keyframes bocado-pulse { 0%,100%{opacity:.35} 50%{opacity:1} }
+.bar-fill { transition: width .5s cubic-bezier(.22,1,.36,1); }
+.rise-in { animation: bocado-rise .28s cubic-bezier(.22,1,.36,1) both; }
+@keyframes bocado-rise { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform:none; } }
+.toast-in { animation: bocado-toast .25s ease both; }
+@keyframes bocado-toast { from { opacity:0; transform: translateY(-8px);} to { opacity:1; transform:none; } }
+input:focus, button:focus, textarea:focus, select:focus { outline: 2px solid #A8432B; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react,es2017">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ---------- tokens ---------- */
+const COLORS = {
+  paper: "#F1ECDD",
+  card: "#FBF8F0",
+  ink: "#262319",
+  inkSoft: "#5B5646",
+  line: "#DCD3B8",
+  brick: "#A8432B",
+  matcha: "#5C6B3F",
+  mustard: "#D9A441",
+  plum: "#6E4A5E",
+  teal: "#3E6E6A",
+};
+
+/* ---------- icon system (inline SVGs, no external icon package) ---------- */
+const ICONS = {
+  camera: '<rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7l1.5-3h5L16 7"></path><circle cx="12" cy="13.5" r="3.2"></circle>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5-4 4-3-3-5 5"></path>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+  check: '<polyline points="20 6 9 17 4 12"></polyline>',
+  loader: '<circle cx="12" cy="12" r="9" opacity="0.25"></circle><path d="M21 12a9 9 0 0 0-9-9"></path>',
+  messageCircle: '<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.4H4l3-3.2A8.4 8.4 0 1 1 21 11.5z"></path>',
+  settings: '<circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path>',
+  trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6h12z"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
+  flame: '<path d="M12 22c4 0 6-3 6-6.5 0-3-2-5-3-7 0 2-1.5 3-2 3-1 0-1.5-1.5-1-3-2 1.5-4 4.5-4 7.5 0 3.5 2 6 4 6z"></path>',
+  beef: '<rect x="4" y="8" width="16" height="9" rx="4"></rect><line x1="7" y1="11" x2="17" y2="11"></line><line x1="7" y1="14" x2="17" y2="14"></line>',
+  wheat: '<line x1="12" y1="2" x2="12" y2="22"></line><path d="M12 5l-3 2M12 5l3 2M12 9l-3 2M12 9l3 2M12 13l-3 2M12 13l3 2M12 17l-3 2M12 17l3 2"></path>',
+  droplet: '<path d="M12 2c4 5 7 8.5 7 12a7 7 0 0 1-14 0c0-3.5 3-7 7-12z"></path>',
+  send: '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>',
+  home: '<path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line>',
+  sparkles: '<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"></path><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"></path>',
+  alertTriangle: '<path d="M12 3l10 18H2L12 3z"></path><line x1="12" y1="9" x2="12" y2="14"></line><circle cx="12" cy="17.3" r="0.5" fill="currentColor" stroke="none"></circle>',
+  utensils: '<path d="M6 2v7a2 2 0 0 0 4 0V2"></path><line x1="8" y1="9" x2="8" y2="22"></line><path d="M18 2c-1.5 1.5-2 3.5-2 5.5 0 1.5.7 2.5 2 2.5V2z"></path><line x1="18" y1="10" x2="18" y2="22"></line>',
+  user: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"></path>',
+  ruler: '<rect x="2" y="8" width="20" height="8" rx="1"></rect><line x1="6" y1="8" x2="6" y2="11"></line><line x1="10" y1="8" x2="10" y2="11"></line><line x1="14" y1="8" x2="14" y2="11"></line><line x1="18" y1="8" x2="18" y2="11"></line>',
+  scale: '<rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="12" cy="13" r="4"></circle><line x1="12" y1="7" x2="12" y2="9"></line>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M10 21a2 2 0 0 0 4 0"></path>',
+  bellRing: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M10 21a2 2 0 0 0 4 0"></path><path d="M4 4l2 2M20 4l-2 2"></path>',
+  pill: '<rect x="3" y="8" width="18" height="8" rx="4"></rect><line x1="12" y1="8" x2="12" y2="16"></line>',
+  barcode: '<line x1="4" y1="5" x2="4" y2="19"></line><line x1="7" y1="5" x2="7" y2="19"></line><line x1="10" y1="5" x2="10" y2="19"></line><line x1="13" y1="5" x2="13" y2="19" stroke-width="3"></line><line x1="16" y1="5" x2="16" y2="19"></line><line x1="19" y1="5" x2="19" y2="19" stroke-width="3"></line>',
+  chevronLeft: '<polyline points="15 18 9 12 15 6"></polyline>',
+  chevronRight: '<polyline points="9 18 15 12 9 6"></polyline>',
+  minus: '<line x1="5" y1="12" x2="19" y2="12"></line>',
+  plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+};
+
+function Icon({ name, size = 18, color = "currentColor", className = "", style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className={className} style={style}
+      dangerouslySetInnerHTML={{ __html: ICONS[name] || "" }} />
+  );
+}
+
+const ACTIVITY_LEVELS = [
+  { key: "sedentario", label: "Sedentario", desc: "Poco o nada de ejercicio", mult: 1.2 },
+  { key: "ligero", label: "Ligero", desc: "Ejercicio 1-3 días por semana", mult: 1.375 },
+  { key: "moderado", label: "Moderado", desc: "Ejercicio 3-5 días por semana", mult: 1.55 },
+  { key: "activo", label: "Activo", desc: "Ejercicio 6-7 días por semana", mult: 1.725 },
+  { key: "muy_activo", label: "Muy activo", desc: "Entrenamiento intenso o trabajo físico", mult: 1.9 },
+];
+
+const GOAL_OPTIONS = [
+  { key: "perder", label: "Bajar de peso", desc: "Déficit calórico moderado, priorizando proteína" },
+  { key: "mantener", label: "Mantener peso", desc: "Calorías en línea con tu gasto diario" },
+  { key: "ganar", label: "Ganar músculo", desc: "Superávit calórico moderado" },
+];
+
+const todayStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const fmtDate = (d) => {
+  const date = new Date(d + "T00:00:00");
+  return date.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
+};
+
+function computeGoals(p) {
+  const weightKg = Number(p.weightKg) || 0;
+  const heightCm = Number(p.heightCm) || 0;
+  const age = Number(p.age) || 0;
+  const bmr = p.sex === "m"
+    ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
+    : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+  const level = ACTIVITY_LEVELS.find((a) => a.key === p.activity) || ACTIVITY_LEVELS[1];
+  let tdee = bmr * level.mult;
+  let calories = tdee;
+  if (p.goal === "perder") calories = tdee - 450;
+  if (p.goal === "ganar") calories = tdee + 350;
+  calories = Math.max(1200, Math.round(calories));
+
+  const proteinPerKg = p.goal === "perder" ? 2.2 : p.goal === "ganar" ? 2.0 : 1.8;
+  const protein = Math.round(weightKg * proteinPerKg);
+  const fat = Math.round((calories * 0.27) / 9);
+  const carbs = Math.max(50, Math.round((calories - protein * 4 - fat * 9) / 4));
+
+  const waterMl = Math.round(weightKg * 35 + (level.key === "activo" || level.key === "muy_activo" ? 400 : 0));
+  const creatineG = Math.min(8, Math.max(3, Math.round(weightKg * 0.03 * 2) / 2));
+
+  return { calories, protein, carbs, fat, waterMl, creatineG };
+}
+
+function loadJSON(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function saveJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(",")[1]);
+    r.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    r.readAsDataURL(file);
+  });
+}
+
+function parseJsonLoose(text) {
+  if (!text) return null;
+  let t = text.trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start === -1 || end === -1) return null;
+  try { return JSON.parse(t.slice(start, end + 1)); } catch { return null; }
+}
+
+const FALLBACK_MODEL = "gemini-flash-latest";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function callGemini({ system, contents, maxTokens = 800, apiKey, model }) {
+  if (!apiKey) throw new Error("Falta tu clave de API de Gemini. Cargala en Perfil → Conexión con la IA.");
+  const useModel = model || FALLBACK_MODEL;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${useModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = JSON.stringify({
+    contents,
+    systemInstruction: { parts: [{ text: system }] },
+    generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } },
+  });
+
+  const maxAttempts = 3;
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    } catch (e) {
+      lastError = new Error("No se pudo conectar con la IA. Revisá tu conexión.");
+      await sleep(attempt * 1000);
+      continue;
+    }
+    if (res.ok) {
+      const data = await res.json();
+      const candidate = data.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+      const text = parts.map((p) => p.text).filter(Boolean).join("\n");
+      if (!text) {
+        const reason = candidate?.finishReason || "sin respuesta";
+        throw new Error(`La IA no devolvió texto (motivo: ${reason}). Probá sacar la foto de nuevo.`);
+      }
+      return text;
+    }
+    let detail = "";
+    try { const errData = await res.json(); detail = errData?.error?.message || ""; } catch {}
+    if (res.status === 429) throw new Error("Llegaste al límite gratuito por ahora. Probá de nuevo en un minuto.");
+    if ((res.status === 503 || res.status === 500) && attempt < maxAttempts) {
+      lastError = new Error("El modelo está saturado en este momento. Reintentando...");
+      await sleep(attempt * 1500);
+      continue;
+    }
+    if (res.status === 503) throw new Error("El modelo de Gemini está saturado ahora mismo. Probá de nuevo en unos minutos.");
+    throw new Error(`Error ${res.status} (modelo: ${useModel})` + (detail ? `: ${detail}` : ""));
+  }
+  throw lastError || new Error("Fallo la llamada a la IA. Probá de nuevo.");
+}
+
+
+const ANALYZE_SYSTEM = `Sos un sistema de análisis nutricional para una app de foto de comidas. Vas a recibir una foto de un plato o comida. Identificá los alimentos y estimá sus macronutrientes con criterio de nutricionista, usando las porciones visibles en la imagen.
+Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin backticks, sin markdown, con esta forma EXACTA:
+{"nombre":string (nombre corto del plato, ej "Milanesa con puré"),"items":[{"nombre":string,"porcion":string}],"calorias":number,"proteina_g":number,"carbohidratos_g":number,"grasa_g":number,"confianza":"baja"|"media"|"alta"}
+Si la imagen no muestra comida con claridad, devolvé "items":[] y "confianza":"baja" con valores en 0.`;
+
+function todayTotals(meals) {
+  const t = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  meals.filter((m) => m.date === todayStr()).forEach((m) => {
+    t.calories += m.calories; t.protein += m.protein; t.carbs += m.carbs; t.fat += m.fat;
+  });
+  return t;
+}
+
+function pct(consumed, goal) {
+  if (!goal) return 0;
+  return Math.min(100, Math.round((consumed / goal) * 100));
+}
+
+/* ---------- small UI pieces ---------- */
+
+function MacroRow({ iconName, label, consumed, goal, unit, color }) {
+  const p = pct(consumed, goal);
+  const over = consumed > goal;
+  return (
+    <div className="py-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <Icon name={iconName} size={15} color={color} />
+          <span className="text-sm" style={{ color: COLORS.ink }}>{label}</span>
+        </div>
+        <span className="f-mono text-sm" style={{ color: over ? COLORS.brick : COLORS.inkSoft }}>
+          {Math.round(consumed)}{unit} <span style={{ color: COLORS.inkSoft }}>/ {goal}{unit}</span>
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full w-full" style={{ background: COLORS.line }}>
+        <div className="h-1.5 rounded-full bar-fill" style={{ width: `${p}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function NutritionLabel({ totals, goals }) {
+  return (
+    <div className="rounded-lg p-4" style={{ background: COLORS.card, border: `1.5px solid ${COLORS.ink}` }}>
+      <div className="flex items-baseline justify-between">
+        <h2 className="f-display text-xl font-semibold" style={{ color: COLORS.ink }}>Hoy</h2>
+        <span className="f-mono text-xs" style={{ color: COLORS.inkSoft }}>{fmtDate(todayStr())}</span>
+      </div>
+      <div className="h-[3px] w-full my-2" style={{ background: COLORS.ink }} />
+      <div className="flex items-end justify-between mb-2">
+        <span className="text-sm" style={{ color: COLORS.inkSoft }}>Calorías</span>
+        <span className="f-mono" style={{ color: COLORS.ink }}>
+          <span className="text-2xl font-bold">{Math.round(totals.calories)}</span>
+          <span className="text-sm" style={{ color: COLORS.inkSoft }}> / {goals.calories} kcal</span>
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full w-full mb-3" style={{ background: COLORS.line }}>
+        <div className="h-1.5 rounded-full bar-fill" style={{ width: `${pct(totals.calories, goals.calories)}%`, background: COLORS.brick }} />
+      </div>
+      <div className="h-px w-full mb-1" style={{ background: COLORS.line }} />
+      <MacroRow iconName="beef" label="Proteína" consumed={totals.protein} goal={goals.protein} unit="g" color={COLORS.matcha} />
+      <MacroRow iconName="wheat" label="Carbohidratos" consumed={totals.carbs} goal={goals.carbs} unit="g" color={COLORS.mustard} />
+      <MacroRow iconName="droplet" label="Grasa" consumed={totals.fat} goal={goals.fat} unit="g" color={COLORS.plum} />
+    </div>
+  );
+}
+
+function WaterCard({ ml, goalMl, onAdd }) {
+  const p = pct(ml, goalMl);
+  return (
+    <div className="rounded-lg p-4 mt-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Icon name="droplet" size={16} color={COLORS.teal} />
+          <span className="text-sm font-medium">Agua</span>
+        </div>
+        <span className="f-mono text-sm" style={{ color: COLORS.inkSoft }}>
+          {(ml / 1000).toFixed(2)}L <span style={{ color: COLORS.inkSoft }}>/ {(goalMl / 1000).toFixed(1)}L</span>
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full w-full mb-3" style={{ background: COLORS.line }}>
+        <div className="h-1.5 rounded-full bar-fill" style={{ width: `${p}%`, background: COLORS.teal }} />
+      </div>
+      <div className="flex gap-2">
+        <button onClick={() => onAdd(-250)} className="flex-1 rounded-md py-2 flex items-center justify-center gap-1 text-xs" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>
+          <Icon name="minus" size={13} /> 250ml
+        </button>
+        <button onClick={() => onAdd(250)} className="flex-1 rounded-md py-2 flex items-center justify-center gap-1 text-xs" style={{ background: COLORS.teal, color: COLORS.card }}>
+          <Icon name="plus" size={13} color={COLORS.card} /> Vaso
+        </button>
+        <button onClick={() => onAdd(500)} className="flex-1 rounded-md py-2 flex items-center justify-center gap-1 text-xs" style={{ background: COLORS.teal, color: COLORS.card }}>
+          <Icon name="plus" size={13} color={COLORS.card} /> Botella
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CreatineCard({ taken, grams, onToggle }) {
+  return (
+    <div className="rounded-lg p-4 mt-3 flex items-center justify-between" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+      <div className="flex items-center gap-2">
+        <Icon name="pill" size={16} color={COLORS.plum} />
+        <div>
+          <p className="text-sm font-medium">Creatina</p>
+          <p className="f-mono text-xs" style={{ color: COLORS.inkSoft }}>Dosis recomendada: {grams}g/día</p>
+        </div>
+      </div>
+      <button
+        onClick={onToggle}
+        className="rounded-md px-3 py-2 flex items-center gap-1.5 text-xs font-medium"
+        style={{ background: taken ? COLORS.matcha : "transparent", color: taken ? COLORS.card : COLORS.inkSoft, border: `1px solid ${taken ? COLORS.matcha : COLORS.line}` }}
+      >
+        <Icon name="check" size={13} color={taken ? COLORS.card : COLORS.inkSoft} /> {taken ? "Tomada" : "Marcar"}
+      </button>
+    </div>
+  );
+}
+
+/* ---------- onboarding wizard ---------- */
+
+function OnboardingWizard({ onFinish }) {
+  const [step, setStep] = useState(0);
+  const [data, setData] = useState({ sex: "", age: "", weightKg: "", heightCm: "", activity: "", goal: "" });
+  const [notifDraft, setNotifDraft] = useState({ enabled: false, waterIntervalH: 2, creatineTime: "09:00", mealReminder: true });
+
+  const canNext = [
+    !!data.sex && Number(data.age) > 0,
+    Number(data.weightKg) > 0 && Number(data.heightCm) > 0,
+    !!data.activity,
+    !!data.goal,
+    true,
+  ][step];
+
+  const preview = step >= 3 && data.goal ? computeGoals(data) : null;
+
+  const requestNotifs = async () => {
+    if (typeof Notification === "undefined") { setNotifDraft((d) => ({ ...d, enabled: true })); return; }
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifDraft((d) => ({ ...d, enabled: perm === "granted" || perm === "default" }));
+    } catch {
+      setNotifDraft((d) => ({ ...d, enabled: true }));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-5" style={{ background: "rgba(38,35,25,0.55)" }}>
+      <div className="rise-in w-full rounded-2xl p-5" style={{ background: COLORS.paper, maxWidth: 420, maxHeight: "90vh", overflowY: "auto" }}>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="rounded-full flex items-center justify-center" style={{ width: 30, height: 30, background: COLORS.brick }}>
+            <Icon name="utensils" size={15} color={COLORS.card} />
+          </div>
+          <h2 className="f-display text-xl font-semibold">Contame sobre vos</h2>
+        </div>
+        <p className="text-sm mb-4" style={{ color: COLORS.inkSoft }}>
+          Con estos datos calculamos tus calorías, macros, agua y creatina recomendadas por día. Después podés ajustarlo todo a mano.
+        </p>
+
+        <div className="flex gap-1 mb-4">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i <= step ? COLORS.brick : COLORS.line }} />
+          ))}
+        </div>
+
+        {step === 0 && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: COLORS.inkSoft }}>Sexo biológico (para calcular tu metabolismo basal)</p>
+              <div className="flex gap-2">
+                {[{ k: "m", l: "Masculino" }, { k: "f", l: "Femenino" }].map((o) => (
+                  <button key={o.k} onClick={() => setData({ ...data, sex: o.k })} className="flex-1 rounded-lg py-2.5 text-sm"
+                    style={{ background: data.sex === o.k ? COLORS.brick : COLORS.card, color: data.sex === o.k ? COLORS.card : COLORS.ink, border: `1px solid ${COLORS.line}` }}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+              Edad
+              <input type="number" min="10" max="100" value={data.age} onChange={(e) => setData({ ...data, age: e.target.value })}
+                className="mt-1 w-full rounded-md px-3 py-2 text-sm" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} placeholder="Ej: 28" />
+            </label>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="flex flex-col gap-4">
+            <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+              <span className="flex items-center gap-1 mb-1"><Icon name="scale" size={13} /> Peso (kg)</span>
+              <input type="number" min="20" max="300" value={data.weightKg} onChange={(e) => setData({ ...data, weightKg: e.target.value })}
+                className="w-full rounded-md px-3 py-2 text-sm f-mono" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} placeholder="Ej: 75" />
+            </label>
+            <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+              <span className="flex items-center gap-1 mb-1"><Icon name="ruler" size={13} /> Altura (cm)</span>
+              <input type="number" min="100" max="250" value={data.heightCm} onChange={(e) => setData({ ...data, heightCm: e.target.value })}
+                className="w-full rounded-md px-3 py-2 text-sm f-mono" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} placeholder="Ej: 178" />
+            </label>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="flex flex-col gap-2">
+            {ACTIVITY_LEVELS.map((a) => (
+              <button key={a.key} onClick={() => setData({ ...data, activity: a.key })} className="text-left rounded-lg px-3 py-2.5"
+                style={{ background: data.activity === a.key ? COLORS.brick : COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                <p className="text-sm font-medium" style={{ color: data.activity === a.key ? COLORS.card : COLORS.ink }}>{a.label}</p>
+                <p className="text-xs" style={{ color: data.activity === a.key ? "rgba(251,248,240,.8)" : COLORS.inkSoft }}>{a.desc}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="flex flex-col gap-2">
+            {GOAL_OPTIONS.map((g) => (
+              <button key={g.key} onClick={() => setData({ ...data, goal: g.key })} className="text-left rounded-lg px-3 py-2.5"
+                style={{ background: data.goal === g.key ? COLORS.brick : COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                <p className="text-sm font-medium" style={{ color: data.goal === g.key ? COLORS.card : COLORS.ink }}>{g.label}</p>
+                <p className="text-xs" style={{ color: data.goal === g.key ? "rgba(251,248,240,.8)" : COLORS.inkSoft }}>{g.desc}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 4 && preview && (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg p-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.inkSoft }}>TUS OBJETIVOS DIARIOS ESTIMADOS</p>
+              <div className="grid grid-cols-2 gap-2 f-mono text-sm">
+                <span>🔥 {preview.calories} kcal</span>
+                <span>🥩 {preview.protein}g proteína</span>
+                <span>🌾 {preview.carbs}g carbos</span>
+                <span>🫒 {preview.fat}g grasa</span>
+                <span>💧 {(preview.waterMl / 1000).toFixed(1)}L agua</span>
+                <span>💊 {preview.creatineG}g creatina</span>
+              </div>
+            </div>
+            <div className="rounded-lg p-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="flex items-center gap-2 text-sm font-medium"><Icon name="bell" size={15} /> Recordatorios</span>
+                <button onClick={requestNotifs} className="text-xs rounded-md px-2 py-1" style={{ background: notifDraft.enabled ? COLORS.matcha : COLORS.paper, color: notifDraft.enabled ? COLORS.card : COLORS.inkSoft, border: `1px solid ${COLORS.line}` }}>
+                  {notifDraft.enabled ? "Activados" : "Activar"}
+                </button>
+              </div>
+              <p className="text-xs" style={{ color: COLORS.inkSoft }}>Te avisamos de tomar agua, tu creatina y registrar comidas mientras tenés la app abierta. Lo podés ajustar después en Perfil.</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 mt-5">
+          {step > 0 && (
+            <button onClick={() => setStep(step - 1)} className="rounded-lg px-4 py-2.5 flex items-center gap-1 text-sm" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>
+              <Icon name="chevronLeft" size={15} /> Atrás
+            </button>
+          )}
+          {step < 4 ? (
+            <button disabled={!canNext} onClick={() => setStep(step + 1)} className="flex-1 rounded-lg py-2.5 flex items-center justify-center gap-1 text-sm font-medium"
+              style={{ background: COLORS.brick, color: COLORS.card, opacity: canNext ? 1 : 0.5 }}>
+              Siguiente <Icon name="chevronRight" size={15} color={COLORS.card} />
+            </button>
+          ) : (
+            <button onClick={() => onFinish(data, notifDraft)} className="flex-1 rounded-lg py-2.5 text-sm font-medium" style={{ background: COLORS.brick, color: COLORS.card }}>
+              Empezar a usar Bocado
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- barcode scanner ---------- */
+
+function BarcodeScanner({ onClose, onConfirm }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const foundRef = useRef(false);
+  const [manualCode, setManualCode] = useState("");
+  const [cameraOn, setCameraOn] = useState(false);
+  const supported = typeof window !== "undefined" && "BarcodeDetector" in window;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [product, setProduct] = useState(null);
+  const [grams, setGrams] = useState(100);
+
+  const stopCamera = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+    setCameraOn(false);
+  };
+
+  const handleCode = async (code) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`);
+      const data = await res.json();
+      if (data.status !== 1 || !data.product) throw new Error("No encontramos ese producto en la base de datos.");
+      const p = data.product;
+      const n = p.nutriments || {};
+      setProduct({
+        nombre: p.product_name || p.generic_name || "Producto escaneado",
+        cal100: Math.round(n["energy-kcal_100g"] || 0),
+        prot100: Math.round(n["proteins_100g"] || 0),
+        carb100: Math.round(n["carbohydrates_100g"] || 0),
+        fat100: Math.round(n["fat_100g"] || 0),
+      });
+      const servingG = parseFloat(p.serving_quantity);
+      setGrams(servingG > 0 ? Math.round(servingG) : 100);
+    } catch (e) {
+      setError(e.message || "No pude buscar ese código.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startScan = async () => {
+    setError(null);
+    setProduct(null);
+    foundRef.current = false;
+    if (!supported) return;
+    let detector;
+    try { detector = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] }); }
+    catch { setError("Tu navegador no soporta el escáner. Ingresá el código a mano."); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      setCameraOn(true);
+      const tick = async () => {
+        if (foundRef.current || !videoRef.current) return;
+        try {
+          const codes = await detector.detect(videoRef.current);
+          if (codes && codes[0]) {
+            foundRef.current = true;
+            stopCamera();
+            handleCode(codes[0].rawValue);
+            return;
+          }
+        } catch {}
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } catch {
+      setError("No pude acceder a la cámara. Ingresá el código a mano.");
+    }
+  };
+
+  useEffect(() => {
+    startScan();
+    return () => stopCamera();
+    // eslint-disable-next-line
+  }, []);
+
+  const submitManual = () => {
+    const code = manualCode.trim();
+    if (!code) return;
+    foundRef.current = true;
+    stopCamera();
+    handleCode(code);
+  };
+
+  const factor = grams / 100;
+  const computed = product ? {
+    calorias: Math.round(product.cal100 * factor),
+    proteina_g: Math.round(product.prot100 * factor),
+    carbohidratos_g: Math.round(product.carb100 * factor),
+    grasa_g: Math.round(product.fat100 * factor),
+  } : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(38,35,25,0.55)" }}>
+      <div className="rise-in w-full rounded-t-2xl p-5" style={{ background: COLORS.paper, maxWidth: 480, maxHeight: "88vh", overflowY: "auto" }}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="f-display text-lg font-semibold">Escanear producto</h3>
+          <button onClick={onClose} aria-label="Cerrar" style={{ color: COLORS.inkSoft }}><Icon name="x" size={20} color={COLORS.inkSoft} /></button>
+        </div>
+
+        {!product && (
+          <>
+            {supported ? (
+              <div className="rounded-lg overflow-hidden mb-3 relative" style={{ background: "#000" }}>
+                <video ref={videoRef} playsInline muted className="w-full" style={{ maxHeight: 260, objectFit: "cover" }} />
+                {!cameraOn && !error && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Icon name="loader" size={20} color="#fff" className="animate-spin" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-lg p-3 mb-3 flex items-center gap-2" style={{ background: "#F7EAD0", border: `1px solid ${COLORS.mustard}` }}>
+                <Icon name="alertTriangle" size={14} color={COLORS.mustard} />
+                <p className="text-xs" style={{ color: COLORS.ink }}>Tu navegador no soporta el escáner automático. Ingresá el código de barras a mano (el número debajo de las líneas).</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-lg p-3 mb-3 flex items-start gap-2" style={{ background: "#F7E4DE", border: `1px solid ${COLORS.brick}` }}>
+                <Icon name="alertTriangle" size={16} color={COLORS.brick} style={{ marginTop: 2 }} />
+                <p className="text-sm" style={{ color: COLORS.brick }}>{error}</p>
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex items-center gap-2 justify-center py-4">
+                <Icon name="loader" size={16} color={COLORS.brick} className="animate-spin" />
+                <span className="text-sm" style={{ color: COLORS.inkSoft }}>Buscando el producto...</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitManual(); }}
+                placeholder="O ingresá el código a mano"
+                className="f-mono flex-1 rounded-md px-3 py-2 text-sm"
+                style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+              />
+              <button onClick={submitManual} className="rounded-md px-4 py-2 text-sm font-medium" style={{ background: COLORS.brick, color: COLORS.card }}>Buscar</button>
+            </div>
+            {(error) && (
+              <button onClick={startScan} className="w-full mt-2 rounded-lg py-2.5 text-sm" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>Volver a escanear</button>
+            )}
+          </>
+        )}
+
+        {product && computed && (
+          <div className="flex flex-col gap-3">
+            <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+              Producto
+              <input value={product.nombre} onChange={(e) => setProduct({ ...product, nombre: e.target.value })} className="mt-1 w-full rounded-md px-3 py-2 text-sm" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+            </label>
+            <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+              Cantidad consumida (g)
+              <input type="number" min="1" value={grams} onChange={(e) => setGrams(Number(e.target.value) || 0)} className="f-mono mt-1 w-full rounded-md px-3 py-2 text-sm" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+            </label>
+            <div className="grid grid-cols-2 gap-2 f-mono text-sm">
+              <span>🔥 {computed.calorias} kcal</span>
+              <span>🥩 {computed.proteina_g}g proteína</span>
+              <span>🌾 {computed.carbohidratos_g}g carbos</span>
+              <span>🫒 {computed.grasa_g}g grasa</span>
+            </div>
+            <p className="text-xs" style={{ color: COLORS.inkSoft }}>Valores por 100g: {product.cal100} kcal · P{product.prot100} · C{product.carb100} · G{product.fat100}.</p>
+            <div className="flex gap-2 mt-1">
+              <button onClick={() => startScan()} className="flex-1 rounded-lg py-2.5 text-sm" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>Descartar</button>
+              <button onClick={() => onConfirm({ nombre: product.nombre, ...computed })} className="flex-1 rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-1.5" style={{ background: COLORS.brick, color: COLORS.card }}>
+                <Icon name="check" size={15} color={COLORS.card} /> Agregar comida
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- main app ---------- */
+
+function BocadoApp() {
+  const [ready, setReady] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [goals, setGoals] = useState({ calories: 2000, protein: 150, carbs: 200, fat: 65, waterMl: 2500, creatineG: 5 });
+  const [meals, setMeals] = useState([]);
+  const [water, setWater] = useState({});
+  const [creatine, setCreatine] = useState({});
+  const [notifSettings, setNotifSettings] = useState({ enabled: false, waterIntervalH: 2, creatineTime: "09:00", mealReminder: true });
+  const [chatMessages, setChatMessages] = useState([]);
+  const [tab, setTab] = useState("hoy");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
+
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const [goalsDraft, setGoalsDraft] = useState(goals);
+  const [profileDraft, setProfileDraft] = useState(null);
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const [geminiModel, setGeminiModel] = useState("");
+  const [detectingModel, setDetectingModel] = useState(false);
+
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
+  const chatEndRef = useRef(null);
+  const lastFiredRef = useRef({ water: 0, creatineDate: null, mealDate: null });
+
+  useEffect(() => {
+    const pr = loadJSON("bocado:profile");
+    const g = loadJSON("bocado:goals");
+    const m = loadJSON("bocado:meals") || [];
+    const c = loadJSON("bocado:chat") || [];
+    const w = loadJSON("bocado:water") || {};
+    const cr = loadJSON("bocado:creatine") || {};
+    const ns = loadJSON("bocado:notifs");
+    const ak = loadJSON("bocado:apiKey") || "";
+    setApiKey(ak); setApiKeyDraft(ak);
+    const gm = loadJSON("bocado:geminiModel") || "";
+    setGeminiModel(gm);
+
+    if (!pr || !g) { setShowOnboarding(true); }
+    if (pr) { setProfile(pr); setProfileDraft(pr); }
+    if (g) { setGoals(g); setGoalsDraft(g); }
+    if (ns) setNotifSettings(ns);
+    setMeals(m); setChatMessages(c); setWater(w); setCreatine(cr);
+    setReady(true);
+  }, []);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, chatLoading]);
+
+  const persist = (key, value, setter) => {
+    setter(value);
+    saveJSON(key, value);
+  };
+
+  const pushToast = useCallback((title, body) => {
+    const id = Date.now() + Math.random();
+    setToasts((t) => [...t, { id, title, body }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 7000);
+  }, []);
+
+  const fireNotification = useCallback((title, body) => {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      try { new Notification(title, { body }); return; } catch {}
+    }
+    pushToast(title, body);
+  }, [pushToast]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const check = () => {
+      if (!notifSettings.enabled) return;
+      const now = new Date();
+      const todayMl = water[todayStr()] || 0;
+      if (todayMl < goals.waterMl) {
+        if (Date.now() - lastFiredRef.current.water >= notifSettings.waterIntervalH * 3600000) {
+          fireNotification("💧 Hidratate", `Vas ${(todayMl / 1000).toFixed(1)}L de ${(goals.waterMl / 1000).toFixed(1)}L hoy.`);
+          lastFiredRef.current.water = Date.now();
+        }
+      }
+      const taken = creatine[todayStr()];
+      if (!taken && notifSettings.creatineTime) {
+        const [h, mi] = notifSettings.creatineTime.split(":").map(Number);
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        if (nowMin >= h * 60 + mi && lastFiredRef.current.creatineDate !== todayStr()) {
+          fireNotification("💊 Creatina", `Es hora de tomar tus ${goals.creatineG}g de creatina.`);
+          lastFiredRef.current.creatineDate = todayStr();
+        }
+      }
+      if (notifSettings.mealReminder) {
+        const mealsToday = meals.filter((m) => m.date === todayStr()).length;
+        if (mealsToday === 0 && now.getHours() >= 20 && lastFiredRef.current.mealDate !== todayStr()) {
+          fireNotification("🍽️ Bocado", "Todavía no registraste ninguna comida hoy.");
+          lastFiredRef.current.mealDate = todayStr();
+        }
+      }
+    };
+    check();
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, [ready, notifSettings, water, creatine, meals, goals, fireNotification]);
+
+  const handleFile = useCallback(async (file) => {
+    if (!file) return;
+    setAnalyzeError(null); setDraft(null);
+    setPreviewUrl(URL.createObjectURL(file));
+    setAnalyzing(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const text = await callGemini({
+        system: ANALYZE_SYSTEM,
+        contents: [{
+          role: "user",
+          parts: [
+            { text: "Analizá esta comida y devolvé el JSON pedido." },
+            { inline_data: { mime_type: file.type || "image/jpeg", data: base64 } },
+          ],
+        }],
+        maxTokens: 800,
+        apiKey,
+        model: geminiModel,
+      });
+      const parsed = parseJsonLoose(text);
+      if (!parsed) throw new Error("No pude leer la respuesta de la IA");
+      setDraft({
+        nombre: parsed.nombre || "Comida",
+        calorias: Math.round(parsed.calorias || 0),
+        proteina_g: Math.round(parsed.proteina_g || 0),
+        carbohidratos_g: Math.round(parsed.carbohidratos_g || 0),
+        grasa_g: Math.round(parsed.grasa_g || 0),
+        items: parsed.items || [],
+        confianza: parsed.confianza || "media",
+      });
+    } catch (e) {
+      setAnalyzeError(e.message || "Algo salió mal analizando la foto. Probá de nuevo.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [apiKey, geminiModel]);
+
+  const confirmDraft = () => {
+    if (!draft) return;
+    const meal = {
+      id: Date.now() + Math.random().toString(16).slice(2),
+      date: todayStr(),
+      time: new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      name: draft.nombre,
+      calories: Number(draft.calorias) || 0,
+      protein: Number(draft.proteina_g) || 0,
+      carbs: Number(draft.carbohidratos_g) || 0,
+      fat: Number(draft.grasa_g) || 0,
+    };
+    persist("bocado:meals", [meal, ...meals], setMeals);
+    discardDraft();
+  };
+
+  const confirmBarcodeMeal = (m) => {
+    const meal = {
+      id: Date.now() + Math.random().toString(16).slice(2),
+      date: todayStr(),
+      time: new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      name: m.nombre,
+      calories: Number(m.calorias) || 0,
+      protein: Number(m.proteina_g) || 0,
+      carbs: Number(m.carbohidratos_g) || 0,
+      fat: Number(m.grasa_g) || 0,
+    };
+    persist("bocado:meals", [meal, ...meals], setMeals);
+    setShowScanner(false);
+    pushToast("Comida agregada", m.nombre);
+  };
+
+  const discardDraft = () => {
+    setDraft(null); setPreviewUrl(null); setAnalyzeError(null);
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (galleryRef.current) galleryRef.current.value = "";
+  };
+
+  const deleteMeal = (id) => persist("bocado:meals", meals.filter((m) => m.id !== id), setMeals);
+
+  const addWater = (delta) => {
+    const day = todayStr();
+    const current = water[day] || 0;
+    const next = { ...water, [day]: Math.max(0, current + delta) };
+    persist("bocado:water", next, setWater);
+  };
+
+  const toggleCreatine = () => {
+    const day = todayStr();
+    const next = { ...creatine, [day]: !creatine[day] };
+    persist("bocado:creatine", next, setCreatine);
+  };
+
+  const saveGoals = () => {
+    const g = {
+      calories: Math.max(0, Number(goalsDraft.calories) || 0),
+      protein: Math.max(0, Number(goalsDraft.protein) || 0),
+      carbs: Math.max(0, Number(goalsDraft.carbs) || 0),
+      fat: Math.max(0, Number(goalsDraft.fat) || 0),
+      waterMl: Math.max(0, Number(goalsDraft.waterMl) || 0),
+      creatineG: Math.max(0, Number(goalsDraft.creatineG) || 0),
+    };
+    persist("bocado:goals", g, setGoals);
+    pushToast("Objetivos guardados", "Tus nuevas metas diarias ya están activas.");
+  };
+
+  const recalcFromProfile = () => {
+    if (!profileDraft) return;
+    const computed = computeGoals(profileDraft);
+    setGoalsDraft({ ...goalsDraft, ...computed });
+    persist("bocado:profile", profileDraft, setProfile);
+    pushToast("Recalculado", "Revisá los valores y guardá tus objetivos.");
+  };
+
+  const finishOnboarding = (data, notifDraft) => {
+    const computed = computeGoals(data);
+    persist("bocado:profile", data, setProfile);
+    setProfileDraft(data);
+    persist("bocado:goals", computed, setGoals);
+    setGoalsDraft(computed);
+    persist("bocado:notifs", notifDraft, setNotifSettings);
+    setShowOnboarding(false);
+  };
+
+  const resetModel = () => {
+    persist("bocado:geminiModel", "", setGeminiModel);
+    pushToast("Modelo reiniciado", `Ahora se usa el modelo automático (${FALLBACK_MODEL}).`);
+  };
+
+  const saveApiKey = () => {
+    const key = apiKeyDraft.trim();
+    persist("bocado:apiKey", key, setApiKey);
+    pushToast("Clave guardada", "Ya podés usar el análisis de fotos y el coach.");
+  };
+
+  const testNotification = async () => {
+    if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+      try { await Notification.requestPermission(); } catch {}
+    }
+    fireNotification("🔔 Bocado", "Así se van a ver tus recordatorios.");
+  };
+
+  const sendChat = async (textOverride) => {
+    const text = (textOverride ?? chatInput).trim();
+    if (!text || chatLoading) return;
+    const nextMessages = [...chatMessages, { role: "user", content: text }];
+    setChatMessages(nextMessages);
+    setChatInput("");
+    if (!apiKey) {
+      persist("bocado:chat", [...nextMessages, { role: "assistant", content: "Todavía no cargaste tu clave de API. Andá a Perfil → Conexión con la IA para activarme." }], setChatMessages);
+      return;
+    }
+    setChatLoading(true);
+    const totals = todayTotals(meals);
+    const mealsToday = meals.filter((m) => m.date === todayStr()).map((m) => m.name).join(", ") || "ninguna todavía";
+    const waterToday = water[todayStr()] || 0;
+    const creatineToday = creatine[todayStr()] ? "sí" : "todavía no";
+    const perfilLine = profile
+      ? `Perfil: ${profile.sex === "m" ? "hombre" : "mujer"}, ${profile.age} años, ${profile.weightKg}kg, ${profile.heightCm}cm, actividad ${profile.activity}, objetivo ${profile.goal}.`
+      : "";
+    const system = `Sos "Coach Bocado", un nutricionista cercano, práctico y motivador. Hablás en español rioplatense, con voseo, tono cálido pero directo, sin sermonear.
+${perfilLine}
+Objetivo diario: ${goals.calories} kcal, ${goals.protein}g proteína, ${goals.carbs}g carbohidratos, ${goals.fat}g grasa, ${(goals.waterMl / 1000).toFixed(1)}L agua, ${goals.creatineG}g creatina.
+Consumido hasta ahora: ${Math.round(totals.calories)} kcal, ${Math.round(totals.protein)}g proteína, ${Math.round(totals.carbs)}g carbohidratos, ${Math.round(totals.fat)}g grasa, ${(waterToday / 1000).toFixed(1)}L agua. Creatina tomada hoy: ${creatineToday}.
+Comidas registradas hoy: ${mealsToday}.
+Dale consejos concretos y accionables sobre qué comer, cómo organizar sus próximas comidas, hidratación y creatina, considerando lo que ya consumió. Sé breve (2-5 oraciones salvo que pida un plan detallado). No des diagnósticos médicos ni reemplaces a un profesional de la salud; si la consulta suena a un tema médico, sugerí amablemente consultar a un profesional y ayudá igual con lo nutricional general.`;
+    try {
+      const contents = nextMessages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+      const reply = await callGemini({ system, contents, maxTokens: 700, apiKey, model: geminiModel });
+      persist("bocado:chat", [...nextMessages, { role: "assistant", content: reply || "No pude generar una respuesta, probá de nuevo." }], setChatMessages);
+    } catch (e) {
+      persist("bocado:chat", [...nextMessages, { role: "assistant", content: e.message || "Se me cortó la conexión. Probá enviar el mensaje de nuevo." }], setChatMessages);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  if (!ready) {
+    return (
+      <div className="bocado min-h-screen flex items-center justify-center" style={{ background: COLORS.paper }}>
+        <Icon name="loader" size={22} color={COLORS.brick} className="animate-spin" />
+      </div>
+    );
+  }
+
+  const totals = todayTotals(meals);
+  const todayMeals = meals.filter((m) => m.date === todayStr());
+  const historyDates = [...new Set(meals.filter((m) => m.date !== todayStr()).map((m) => m.date))].sort().reverse();
+  const waterToday = water[todayStr()] || 0;
+  const creatineToday = !!creatine[todayStr()];
+
+  return (
+    <div className="bocado min-h-screen flex flex-col" style={{ background: COLORS.paper, color: COLORS.ink }}>
+
+      <div className="fixed top-4 left-0 right-0 z-[60] flex flex-col items-center gap-2 px-4 pointer-events-none">
+        {toasts.map((t) => (
+          <div key={t.id} className="toast-in rounded-lg px-4 py-2.5 flex items-start gap-2" style={{ background: COLORS.ink, color: COLORS.paper, maxWidth: 380, width: "100%" }}>
+            <Icon name="bellRing" size={15} color={COLORS.paper} style={{ marginTop: 2, flexShrink: 0 }} />
+            <div>
+              <p className="text-sm font-medium">{t.title}</p>
+              <p className="text-xs opacity-80">{t.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="rounded-full flex items-center justify-center" style={{ width: 30, height: 30, background: COLORS.brick }}>
+            <Icon name="utensils" size={15} color={COLORS.card} />
+          </div>
+          <h1 className="f-display text-2xl font-semibold">Bocado</h1>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto px-5 pb-28" style={{ maxWidth: 480, margin: "0 auto", width: "100%" }}>
+        {tab === "hoy" && (
+          <div className="rise-in">
+            <NutritionLabel totals={totals} goals={goals} />
+            <WaterCard ml={waterToday} goalMl={goals.waterMl} onAdd={addWater} />
+            <CreatineCard taken={creatineToday} grams={goals.creatineG} onToggle={toggleCreatine} />
+
+            <button onClick={() => cameraRef.current?.click()} className="w-full mt-4 rounded-lg py-3.5 flex items-center justify-center gap-2 font-medium" style={{ background: COLORS.brick, color: COLORS.card }}>
+              <Icon name="camera" size={18} color={COLORS.card} /> Sacar foto de la comida
+            </button>
+            <button onClick={() => galleryRef.current?.click()} className="w-full mt-2 rounded-lg py-2.5 flex items-center justify-center gap-2 text-sm" style={{ background: "transparent", color: COLORS.inkSoft, border: `1px solid ${COLORS.line}` }}>
+              <Icon name="image" size={15} color={COLORS.inkSoft} /> Elegir de la galería
+            </button>
+            <button onClick={() => setShowScanner(true)} className="w-full mt-2 rounded-lg py-2.5 flex items-center justify-center gap-2 text-sm" style={{ background: "transparent", color: COLORS.inkSoft, border: `1px solid ${COLORS.line}` }}>
+              <Icon name="barcode" size={15} color={COLORS.inkSoft} /> Escanear código de barras
+            </button>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+            <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold mb-2" style={{ color: COLORS.inkSoft }}>Comidas de hoy</h3>
+              {todayMeals.length === 0 ? (
+                <div className="rounded-lg p-5 text-center" style={{ background: COLORS.card, border: `1px dashed ${COLORS.line}` }}>
+                  <p className="text-sm" style={{ color: COLORS.inkSoft }}>Todavía no registraste ninguna comida. Sacale una foto a tu próximo plato y dejá que la IA calcule los macros.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {todayMeals.map((m) => (
+                    <div key={m.id} className="rounded-lg p-3 flex items-center justify-between" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                      <div>
+                        <p className="text-sm font-medium">{m.name}</p>
+                        <p className="f-mono text-xs mt-0.5" style={{ color: COLORS.inkSoft }}>{m.time} · {m.calories} kcal · P{m.protein} C{m.carbs} G{m.fat}</p>
+                      </div>
+                      <button onClick={() => deleteMeal(m.id)} aria-label="Eliminar comida" className="p-1.5" style={{ color: COLORS.inkSoft }}>
+                        <Icon name="trash" size={16} color={COLORS.inkSoft} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === "historial" && (
+          <div className="rise-in pt-1">
+            <h2 className="f-display text-xl font-semibold mb-3">Historial</h2>
+            {historyDates.length === 0 ? (
+              <div className="rounded-lg p-5 text-center" style={{ background: COLORS.card, border: `1px dashed ${COLORS.line}` }}>
+                <p className="text-sm" style={{ color: COLORS.inkSoft }}>Todavía no hay días anteriores registrados.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {historyDates.map((d) => {
+                  const dayMeals = meals.filter((m) => m.date === d);
+                  const t = dayMeals.reduce((acc, m) => ({ calories: acc.calories + m.calories, protein: acc.protein + m.protein, carbs: acc.carbs + m.carbs, fat: acc.fat + m.fat }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+                  const dw = water[d] || 0;
+                  const dc = !!creatine[d];
+                  return (
+                    <div key={d} className="rounded-lg p-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium capitalize">{fmtDate(d)}</span>
+                        <span className="f-mono text-xs" style={{ color: COLORS.inkSoft }}>{Math.round(t.calories)} kcal</span>
+                      </div>
+                      <p className="f-mono text-xs" style={{ color: COLORS.inkSoft }}>
+                        P{Math.round(t.protein)} · C{Math.round(t.carbs)} · G{Math.round(t.fat)} · 💧{(dw / 1000).toFixed(1)}L · 💊{dc ? "sí" : "no"} — {dayMeals.length} comida{dayMeals.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "coach" && (
+          <div className="rise-in pt-1 flex flex-col" style={{ minHeight: "60vh" }}>
+            <h2 className="f-display text-xl font-semibold mb-3">Coach</h2>
+            <div className="flex-1 flex flex-col gap-3 mb-3">
+              {chatMessages.length === 0 && (
+                <div className="rounded-lg p-4" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                  <p className="text-sm mb-3" style={{ color: COLORS.inkSoft }}>Preguntale lo que quieras: qué comer, cómo repartir tus macros, hidratación, creatina o cómo organizar tu semana.</p>
+                  <div className="flex flex-col gap-2">
+                    {["¿Qué como esta noche con lo que me queda de macros?", "Ayudame a organizar mis comidas de la semana", "¿Cómo voy con mis objetivos hoy?"].map((s) => (
+                      <button key={s} onClick={() => sendChat(s)} className="text-left text-sm rounded-md px-3 py-2" style={{ background: COLORS.paper, color: COLORS.ink, border: `1px solid ${COLORS.line}` }}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {chatMessages.map((m, i) => (
+                <div key={i} className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "self-end" : "self-start"}`}
+                  style={{ background: m.role === "user" ? COLORS.brick : COLORS.card, color: m.role === "user" ? COLORS.card : COLORS.ink, border: m.role === "user" ? "none" : `1px solid ${COLORS.line}` }}>
+                  {m.content}
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="self-start flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                  <span className="pulse-dot" style={{ width: 5, height: 5, borderRadius: 99, background: COLORS.inkSoft }} />
+                  <span className="pulse-dot" style={{ width: 5, height: 5, borderRadius: 99, background: COLORS.inkSoft, animationDelay: ".15s" }} />
+                  <span className="pulse-dot" style={{ width: 5, height: 5, borderRadius: 99, background: COLORS.inkSoft, animationDelay: ".3s" }} />
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+        )}
+
+        {tab === "perfil" && (
+          <div className="rise-in pt-1 flex flex-col gap-5">
+            <div>
+              <h2 className="f-display text-xl font-semibold mb-3 flex items-center gap-2"><Icon name="sparkles" size={18} /> Conexión con la IA</h2>
+              <div className="rounded-lg p-4 flex flex-col gap-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                <p className="text-xs" style={{ color: COLORS.inkSoft }}>
+                  Bocado corre como una página estática, así que usa tu propia clave de API de Google Gemini (gratis) para el análisis de fotos y el coach. Se guarda solo en este navegador (localStorage) y se envía directo a Google — nunca pasa por ningún otro servidor. Conseguila gratis, sin tarjeta, en <span className="f-mono">aistudio.google.com/apikey</span>.
+                </p>
+                <input
+                  type="password"
+                  value={apiKeyDraft}
+                  onChange={(e) => setApiKeyDraft(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="f-mono w-full rounded-md px-3 py-2 text-sm"
+                  style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: apiKey ? COLORS.matcha : COLORS.inkSoft }}>
+                    {apiKey ? "✓ Clave guardada" : "Sin clave cargada"}
+                  </span>
+                  <button
+                    onClick={saveApiKey}
+                    className="rounded-lg px-4 py-2 text-sm font-medium"
+                    style={{ background: COLORS.brick, color: COLORS.card }}
+                  >
+                    Guardar clave
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+                    Modelo (opcional — dejalo vacío para usar siempre el más reciente automáticamente)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={geminiModel}
+                      onChange={(e) => setGeminiModel(e.target.value)}
+                      onBlur={() => persist("bocado:geminiModel", geminiModel.trim(), setGeminiModel)}
+                      placeholder={FALLBACK_MODEL}
+                      className="f-mono flex-1 rounded-md px-3 py-2 text-sm"
+                      style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+                    />
+                    {geminiModel && (
+                      <button onClick={resetModel} className="text-xs rounded-md px-2 py-2" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs" style={{ color: COLORS.inkSoft }}>
+                  El nivel gratuito de Gemini tiene una cuota diaria (de sobra para uso personal) y, a cambio de ser gratis, Google puede usar tus fotos y mensajes para mejorar sus modelos. Si eso te preocupa, podés usar en cambio una clave de pago de Anthropic u OpenAI más adelante.
+                </p>
+              </div>
+            </div>
+            <div>
+              <h2 className="f-display text-xl font-semibold mb-3 flex items-center gap-2"><Icon name="user" size={18} /> Tus datos</h2>
+              {profileDraft && (
+                <div className="rounded-lg p-4 flex flex-col gap-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                  <div className="flex gap-2">
+                    {[{ k: "m", l: "Masculino" }, { k: "f", l: "Femenino" }].map((o) => (
+                      <button key={o.k} onClick={() => setProfileDraft({ ...profileDraft, sex: o.k })} className="flex-1 rounded-md py-2 text-sm"
+                        style={{ background: profileDraft.sex === o.k ? COLORS.brick : COLORS.paper, color: profileDraft.sex === o.k ? COLORS.card : COLORS.ink, border: `1px solid ${COLORS.line}` }}>{o.l}</button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>Edad
+                      <input type="number" value={profileDraft.age} onChange={(e) => setProfileDraft({ ...profileDraft, age: e.target.value })} className="f-mono mt-1 w-full rounded-md px-2 py-1.5 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }} />
+                    </label>
+                    <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>Peso (kg)
+                      <input type="number" value={profileDraft.weightKg} onChange={(e) => setProfileDraft({ ...profileDraft, weightKg: e.target.value })} className="f-mono mt-1 w-full rounded-md px-2 py-1.5 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }} />
+                    </label>
+                    <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>Altura (cm)
+                      <input type="number" value={profileDraft.heightCm} onChange={(e) => setProfileDraft({ ...profileDraft, heightCm: e.target.value })} className="f-mono mt-1 w-full rounded-md px-2 py-1.5 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }} />
+                    </label>
+                    <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>Objetivo
+                      <select value={profileDraft.goal} onChange={(e) => setProfileDraft({ ...profileDraft, goal: e.target.value })} className="mt-1 w-full rounded-md px-2 py-1.5 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }}>
+                        {GOAL_OPTIONS.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>Nivel de actividad
+                    <select value={profileDraft.activity} onChange={(e) => setProfileDraft({ ...profileDraft, activity: e.target.value })} className="mt-1 w-full rounded-md px-2 py-1.5 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }}>
+                      {ACTIVITY_LEVELS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+                    </select>
+                  </label>
+                  <button onClick={recalcFromProfile} className="rounded-lg py-2.5 text-sm font-medium" style={{ background: COLORS.ink, color: COLORS.paper }}>Recalcular objetivos con estos datos</button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h2 className="f-display text-xl font-semibold mb-3">Objetivos diarios</h2>
+              <div className="rounded-lg p-4 flex flex-col gap-3" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                {[
+                  { key: "calories", label: "Calorías (kcal)", icon: "flame", color: COLORS.brick },
+                  { key: "protein", label: "Proteína (g)", icon: "beef", color: COLORS.matcha },
+                  { key: "carbs", label: "Carbohidratos (g)", icon: "wheat", color: COLORS.mustard },
+                  { key: "fat", label: "Grasa (g)", icon: "droplet", color: COLORS.plum },
+                  { key: "waterMl", label: "Agua (ml)", icon: "droplet", color: COLORS.teal },
+                  { key: "creatineG", label: "Creatina (g)", icon: "pill", color: COLORS.plum },
+                ].map((f) => (
+                  <label key={f.key} className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm"><Icon name={f.icon} size={15} color={f.color} />{f.label}</span>
+                    <input type="number" min="0" value={goalsDraft[f.key]} onChange={(e) => setGoalsDraft({ ...goalsDraft, [f.key]: e.target.value })} className="f-mono text-sm w-24 text-right rounded-md px-2 py-1" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                  </label>
+                ))}
+              </div>
+              <button onClick={saveGoals} className="w-full mt-3 rounded-lg py-3 font-medium" style={{ background: COLORS.brick, color: COLORS.card }}>Guardar objetivos</button>
+            </div>
+
+            <div>
+              <h2 className="f-display text-xl font-semibold mb-3 flex items-center gap-2"><Icon name="bell" size={18} /> Recordatorios</h2>
+              <div className="rounded-lg p-4 flex flex-col gap-4" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Activar recordatorios</span>
+                  <button
+                    onClick={async () => {
+                      const nextEnabled = !notifSettings.enabled;
+                      if (nextEnabled && typeof Notification !== "undefined" && Notification.permission !== "granted") {
+                        try { await Notification.requestPermission(); } catch {}
+                      }
+                      persist("bocado:notifs", { ...notifSettings, enabled: nextEnabled }, setNotifSettings);
+                    }}
+                    className="rounded-full px-3 py-1.5 text-xs font-medium"
+                    style={{ background: notifSettings.enabled ? COLORS.matcha : COLORS.paper, color: notifSettings.enabled ? COLORS.card : COLORS.inkSoft, border: `1px solid ${COLORS.line}` }}
+                  >
+                    {notifSettings.enabled ? "Activados" : "Desactivados"}
+                  </button>
+                </div>
+                <label className="flex items-center justify-between text-sm">
+                  Recordar agua cada
+                  <span className="flex items-center gap-1">
+                    <input type="number" min="1" max="8" value={notifSettings.waterIntervalH} onChange={(e) => persist("bocado:notifs", { ...notifSettings, waterIntervalH: Number(e.target.value) || 1 }, setNotifSettings)} className="f-mono w-14 text-right rounded-md px-2 py-1 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }} />
+                    <span className="text-xs" style={{ color: COLORS.inkSoft }}>hs</span>
+                  </span>
+                </label>
+                <label className="flex items-center justify-between text-sm">
+                  Hora del recordatorio de creatina
+                  <input type="time" value={notifSettings.creatineTime} onChange={(e) => persist("bocado:notifs", { ...notifSettings, creatineTime: e.target.value }, setNotifSettings)} className="f-mono rounded-md px-2 py-1 text-sm" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }} />
+                </label>
+                <label className="flex items-center justify-between text-sm">
+                  Avisar si no registré comidas antes de las 20:00
+                  <button onClick={() => persist("bocado:notifs", { ...notifSettings, mealReminder: !notifSettings.mealReminder }, setNotifSettings)} className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: notifSettings.mealReminder ? COLORS.matcha : COLORS.paper, color: notifSettings.mealReminder ? COLORS.card : COLORS.inkSoft, border: `1px solid ${COLORS.line}` }}>
+                    {notifSettings.mealReminder ? "Sí" : "No"}
+                  </button>
+                </label>
+                <button onClick={testNotification} className="rounded-lg py-2.5 text-sm flex items-center justify-center gap-2" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>
+                  <Icon name="bellRing" size={15} color={COLORS.inkSoft} /> Probar notificación
+                </button>
+                <p className="text-xs" style={{ color: COLORS.inkSoft }}>Los recordatorios funcionan mientras tengas Bocado abierto en el navegador. Si tu navegador bloquea las notificaciones, vas a ver los avisos igual arriba de la app.</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {tab === "coach" && (
+        <div className="fixed left-0 right-0" style={{ bottom: 64, background: COLORS.paper, borderTop: `1px solid ${COLORS.line}` }}>
+          <div className="flex items-center gap-2 px-4 py-2" style={{ maxWidth: 480, margin: "0 auto" }}>
+            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }} placeholder="Escribile a tu coach..." className="flex-1 rounded-full px-4 py-2.5 text-sm" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+            <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim()} className="rounded-full p-2.5" style={{ background: COLORS.brick, color: COLORS.card, opacity: chatLoading || !chatInput.trim() ? 0.5 : 1 }}>
+              <Icon name="send" size={16} color={COLORS.card} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <nav className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-2.5" style={{ background: COLORS.card, borderTop: `1px solid ${COLORS.line}` }}>
+        {[
+          { key: "hoy", label: "Hoy", icon: "home" },
+          { key: "historial", label: "Historial", icon: "calendar" },
+          { key: "coach", label: "Coach", icon: "messageCircle" },
+          { key: "perfil", label: "Perfil", icon: "settings" },
+        ].map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)} className="tab-btn flex flex-col items-center gap-0.5 px-3" style={{ color: tab === t.key ? COLORS.brick : COLORS.inkSoft }}>
+            <Icon name={t.icon} size={19} color={tab === t.key ? COLORS.brick : COLORS.inkSoft} />
+            <span className="text-[10px] font-medium">{t.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {previewUrl && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(38,35,25,0.55)" }}>
+          <div className="rise-in w-full rounded-t-2xl p-5" style={{ background: COLORS.paper, maxWidth: 480, maxHeight: "88vh", overflowY: "auto" }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="f-display text-lg font-semibold">Analizando comida</h3>
+              <button onClick={discardDraft} aria-label="Cerrar" style={{ color: COLORS.inkSoft }}><Icon name="x" size={20} color={COLORS.inkSoft} /></button>
+            </div>
+            <img src={previewUrl} alt="Foto de la comida" className="w-full rounded-lg mb-4" style={{ maxHeight: 220, objectFit: "cover" }} />
+
+            {analyzing && (
+              <div className="flex items-center gap-2 justify-center py-6">
+                <Icon name="loader" size={18} color={COLORS.brick} className="animate-spin" />
+                <span className="text-sm" style={{ color: COLORS.inkSoft }}>Calculando macros con IA...</span>
+              </div>
+            )}
+
+            {analyzeError && (
+              <div className="rounded-lg p-3 mb-3 flex items-start gap-2" style={{ background: "#F7E4DE", border: `1px solid ${COLORS.brick}` }}>
+                <Icon name="alertTriangle" size={16} color={COLORS.brick} style={{ marginTop: 2 }} />
+                <p className="text-sm" style={{ color: COLORS.brick }}>{analyzeError}</p>
+              </div>
+            )}
+
+            {draft && (
+              <div className="flex flex-col gap-3">
+                {draft.confianza === "baja" && (
+                  <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: "#F7EAD0", border: `1px solid ${COLORS.mustard}` }}>
+                    <Icon name="sparkles" size={14} color={COLORS.mustard} />
+                    <p className="text-xs" style={{ color: COLORS.ink }}>Confianza baja: revisá y ajustá los valores antes de guardar.</p>
+                  </div>
+                )}
+                <label className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+                  Nombre
+                  <input value={draft.nombre} onChange={(e) => setDraft({ ...draft, nombre: e.target.value })} className="mt-1 w-full rounded-md px-3 py-2 text-sm" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                </label>
+                {draft.items?.length > 0 && (
+                  <p className="text-xs" style={{ color: COLORS.inkSoft }}>{draft.items.map((it) => `${it.nombre} (${it.porcion})`).join(" · ")}</p>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "calorias", label: "Calorías", icon: "flame", color: COLORS.brick },
+                    { key: "proteina_g", label: "Proteína (g)", icon: "beef", color: COLORS.matcha },
+                    { key: "carbohidratos_g", label: "Carbos (g)", icon: "wheat", color: COLORS.mustard },
+                    { key: "grasa_g", label: "Grasa (g)", icon: "droplet", color: COLORS.plum },
+                  ].map((f) => (
+                    <label key={f.key} className="text-xs font-medium" style={{ color: COLORS.inkSoft }}>
+                      <span className="flex items-center gap-1 mb-1"><Icon name={f.icon} size={12} color={f.color} />{f.label}</span>
+                      <input type="number" min="0" value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} className="f-mono w-full rounded-md px-2 py-1.5 text-sm" style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                    </label>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={discardDraft} className="flex-1 rounded-lg py-2.5 text-sm" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>Descartar</button>
+                  <button onClick={confirmDraft} className="flex-1 rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-1.5" style={{ background: COLORS.brick, color: COLORS.card }}>
+                    <Icon name="check" size={15} color={COLORS.card} /> Agregar comida
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {analyzeError && !draft && !analyzing && (
+              <button onClick={discardDraft} className="w-full rounded-lg py-2.5 text-sm mt-1" style={{ border: `1px solid ${COLORS.line}`, color: COLORS.inkSoft }}>Cerrar</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showScanner && <BarcodeScanner onClose={() => setShowScanner(false)} onConfirm={confirmBarcodeMeal} />}
+
+      {showOnboarding && <OnboardingWizard onFinish={finishOnboarding} />}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<BocadoApp />);
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
